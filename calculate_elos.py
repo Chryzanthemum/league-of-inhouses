@@ -336,63 +336,6 @@ spread.df_to_sheet(df=output_df, sheet='stats')
 
 spread.df_to_sheet(df=per_game_elo_df, sheet='elo_over_time')
 
-post_game_ratings = list()
-player_ratings = {}
-counter = 0
-
-players = player_stats_df['player_id'].unique()
-for player in players:
-    player_ratings[player] = Rating()
-
-for match in player_stats_df['inhouse_id'].unique():
-    match_df = player_stats_df[player_stats_df['inhouse_id'] == match]
-    # this feels really dumb but for each match, I need to know who was on what team and to maintain order
-    ratings_1 = list()
-    ratings_2 = list()
-    team_1 = list()
-    team_2 = list()
-    for player in match_df['player_id']:
-        if match_df[match_df['player_id'] == player]['win'].values[0] == 1:
-            ratings_1.append(player_ratings[player])
-            team_1.append(player)
-        else:
-            ratings_2.append(player_ratings[player])
-            team_2.append(player)
-
-    new_r1, new_r2 = rate([ratings_1, ratings_2], ranks=[0, 1])
-
-    for i in range(0, 5):
-        player_ratings[team_1[i]] = new_r1[i]
-        player_ratings[team_2[i]] = new_r2[i]
-
-    for player in players:
-        post_game_ratings.append([counter, player, player_ratings[player].sigma, player_ratings[player].mu])
-    counter += 1
-
-
-current_elos_df = pd.DataFrame.from_dict(player_ratings, orient='index', columns=[
-                                         'mu', 'sigma']).reset_index().rename(columns={"index": "player_id"})
-
-per_game_elo_df = pd.DataFrame(post_game_ratings, columns=['game_id', 'player_id', 'sigma', 'mu'])
-
-output_df = (
-    player_stats_df
-    .groupby(['player_id'])
-    .agg({"game_id": "nunique", "win": "sum"})
-    .reset_index()
-    .merge(current_elos_df)
-    .merge(players_df)
-    .rename(columns={"game_id": "games_played", "win": "games_won", "mu": "elo", "sigma": "elo_variance"})
-    .loc[:, ['name', 'ign', 'elo', 'elo_variance', 'games_played', 'games_won']]
-    .sort_values('elo', ascending=False)
-)
-
-output_df.head()
-
-spread.df_to_sheet(df=output_df, sheet='stats')
-
-spread.df_to_sheet(df=per_game_elo_df, sheet='elo_over_time')
-
 # This is all network graph stuff
 players_stats_df = spread.sheet_to_df(index=0, sheet='player_stats')
 
